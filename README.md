@@ -2,7 +2,9 @@
 
 **Get Access to 1500+ public guild tags with live profile previews, all from a dedicated Guild Tags button in the settings menu.**
 
-<img width="985" height="656" alt="image" src="https://github.com/user-attachments/assets/424b0790-815a-4956-8327-71d235d9b609" />
+### **DOWNLOAD LINK:** 
+
+<img width="1254" height="718" alt="image" src="https://github.com/user-attachments/assets/900c1739-c039-4e76-889e-a8015e18f6ac" />
 
 <img width="250" height="394" alt="image" src="https://github.com/user-attachments/assets/a012318b-d84a-4a4a-ba90-13a39f36ac2e" />
 
