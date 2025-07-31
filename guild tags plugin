@@ -1,0 +1,578 @@
+/**
+ * @name GuildTags
+ * @version 1.3.0
+ * @author SlashByte
+ * @discord_id @slashbyte
+ * @discord_server https://discord.gg/hmUYz38Ewk  
+ * @description It Adds Guild Tags button to settings with a cool Discord-like UI, cascading animations, copy invite button with tooltip, visible toast, loading spinner, a sleek title bar, search bar, and pagination controls.
+ */
+
+module.exports = class GuildTags {
+    constructor() {
+        this._config = {
+            info: {
+                name: "Guild Tags",
+                authors: [{ name: "SlashByte" }],
+                version: "1.3.0",
+                description: "Adds Guild Tags button to settings with a cool Discord-like UI, cascading animations, copy invite button with tooltip, visible toast, loading spinner, sleek title bar, search bar, and pagination."
+            }
+        };
+        this.currentPage = 1;
+        this.itemsPerPage = 60;
+        this.filteredGuilds = [];
+        this.searchQuery = "";
+    }
+
+    getName() { return this._config.info.name; }
+    getAuthor() { return this._config.info.authors.map(a => a.name).join(", "); }
+    getDescription() { return this._config.info.description; }
+    getVersion() { return this._config.info.version; }
+
+    start() {
+        this._injectButton();
+        console.log('[GuildTags] Plugin loaded! W');
+    }
+
+    stop() {
+        if (this._unpatch) this._unpatch();
+        console.log('[GuildTags] Plugin unloaded!');
+    }
+
+    _injectButton() {
+        const SettingsView = BdApi.Webpack.getModule(m => m.prototype?.getPredicateSections);
+        if (!SettingsView) return;
+
+        this._unpatch = BdApi.Patcher.after(
+            "GuildTags",
+            SettingsView.prototype,
+            "getPredicateSections",
+            (_, __, res) => {
+                if (!Array.isArray(res)) return;
+
+                res.push(
+                    { section: "DIVIDER" },
+                    {
+                        section: "ITEM",
+                        label: "Guild Tags",
+                        onClick: () => this._openCustomPanel()
+                    }
+                );
+            }
+        );
+
+        this._forceUpdateSettings();
+    }
+
+    async _openCustomPanel() {
+        const appMount = document.querySelector("#app-mount");
+        if (appMount) appMount.style.filter = "blur(6px)";
+
+        const modalContainer = document.createElement("div");
+        modalContainer.style.position = "fixed";
+        modalContainer.style.top = "0";
+        modalContainer.style.left = "0";
+        modalContainer.style.width = "100vw";
+        modalContainer.style.height = "100vh";
+        modalContainer.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
+        modalContainer.style.display = "flex";
+        modalContainer.style.justifyContent = "center";
+        modalContainer.style.alignItems = "center";
+        modalContainer.style.zIndex = "9999";
+        modalContainer.style.animation = "fadeIn 0.3s ease-out";
+
+        const spinner = document.createElement("div");
+        spinner.style.width = "50px";
+        spinner.style.height = "50px";
+        spinner.style.border = "5px solid rgba(255,255,255,0.2)";
+        spinner.style.borderTop = "5px solid #5865F2";
+        spinner.style.borderRadius = "50%";
+        spinner.style.animation = "spin 1s linear infinite";
+        modalContainer.appendChild(spinner);
+
+        const spinnerStyle = document.createElement("style");
+        spinnerStyle.textContent = `
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(spinnerStyle);
+
+        document.body.appendChild(modalContainer);
+
+        const closeModal = () => {
+            modalContainer.remove();
+            if (appMount) appMount.style.filter = "";
+            document.removeEventListener("keydown", escListener);
+        };
+
+        const escListener = (e) => { if (e.key === "Escape") closeModal(); };
+        document.addEventListener("keydown", escListener);
+
+        let guilds = [];
+        try {
+            const response = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://gist.githubusercontent.com/TheOutcast7/ed93af088c5d45156ce0b1491ff76aae/raw/gistfile2.txt"));
+            guilds = await response.json();
+        } catch (err) {
+            console.error("[GuildTags] Something went wrong, Support Server - https://discord.gg/hmUYz38Ewk", err);
+            BdApi.alert("Guild Tags", "Something went wrong, Support Server - https://discord.gg/hmUYz38Ewk");
+            closeModal();
+            return;
+        }
+
+        spinner.remove();
+        this.guilds = guilds;
+        this.filteredGuilds = [...this.guilds];
+
+        const inner = document.createElement("div");
+        inner.style.background = "rgba(47, 49, 54, 0.9)";
+        inner.style.backdropFilter = "blur(10px)";
+        inner.style.padding = "20px";
+        inner.style.borderRadius = "10px";
+        inner.style.width = "940px";
+        inner.style.maxHeight = "85vh";
+        inner.style.overflowY = "auto";
+        inner.style.overflowX = "hidden";
+        inner.style.display = "grid";
+        inner.style.gridTemplateColumns = "repeat(4, 1fr)";
+        inner.style.gap = "20px";
+        inner.style.boxShadow = "0 4px 20px rgba(0,0,0,0.5)";
+        inner.style.margin = "0 auto";
+        inner.style.position = "relative";
+        inner.style.animation = "popIn 0.25s ease-out";
+        inner.style.scrollBehavior = "smooth";
+        inner.style.border = "1px solid rgba(88,101,242,0.2)";
+        const styleElement = document.createElement("style");
+        styleElement.textContent = `
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+            @keyframes cardFadeIn {
+                0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes pulseGlow {
+                0% { box-shadow: 0 0 10px rgba(88,101,242,0.5), 0 0 20px rgba(88,101,242,0.3); }
+                50% { box-shadow: 0 0 20px rgba(88,101,242,0.9), 0 0 40px rgba(88,101,242,0.5); }
+                100% { box-shadow: 0 0 10px rgba(88,101,242,0.5), 0 0 20px rgba(88,101,242,0.3); }
+            }
+            @keyframes gradientGlow {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+            @keyframes slideLeft { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideRight { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            ::-webkit-scrollbar { width: 6px; }
+            ::-webkit-scrollbar-track { background: #2f3136; }
+            ::-webkit-scrollbar-thumb { background-color: #5865F2; border-radius: 3px; }
+
+            .clip-tooltip {
+                visibility: hidden;
+                opacity: 0;
+                background-color: #1f1f1f;
+                color: #fff;
+                text-align: center;
+                border-radius: 4px;
+                padding: 4px 6px;
+                position: absolute;
+                z-index: 10002;
+                font-size: 11px;
+                transition: opacity 0.2s;
+                bottom: 35px;
+                left: 50%;
+                transform: translateX(-50%);
+                white-space: nowrap;
+            }
+
+            .clip-btn-container:hover .clip-tooltip {
+                visibility: visible;
+                opacity: 1;
+            }
+
+            .premium-white { font-weight: bold; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.7); transition: transform 0.2s ease, text-shadow 0.3s ease; }
+            .premium-white:hover { transform: scale(1.05); text-shadow: 0 0 10px rgba(255,255,255,0.9); }
+            .discord-blue { color: #00cfff; font-weight: bold; text-decoration: none; transition: color 0.2s ease, text-shadow 0.3s ease; }
+            .discord-blue:hover { color: #00eaff; text-shadow: 0 0 6px #00eaff; }
+
+            .search-bar {
+                grid-column: 1 / -1;
+                margin-bottom: 10px;
+                display: flex;
+                justify-content: center;
+            }
+            .search-input {
+                width: 80%;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+                outline: none;
+                font-size: 14px;
+                background: #2f3136;
+                color: #fff;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+                transition: box-shadow 0.2s ease;
+            }
+            .search-input:focus { box-shadow: 0 0 8px #5865F2; }
+
+            .pagination {
+                grid-column: 1 / -1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 6px;
+                margin-top: 15px;
+            }
+            .page-btn {
+                background: #2f3136;
+                color: #fff;
+                border: 1px solid #5865F2;
+                border-radius: 4px;
+                padding: 5px 10px;
+                cursor: pointer;
+                transition: background 0.2s ease, transform 0.2s ease;
+            }
+            .page-btn:hover {
+                background: #5865F2;
+                transform: scale(1.05);
+            }
+            .page-btn.active {
+                background: #5865F2;
+                font-weight: bold;
+            }
+
+            .page-jump-input {
+                width: 40px;
+                text-align: center;
+                background: #2f3136;
+                color: #fff;
+                border: 1px solid #5865F2;
+                border-radius: 4px;
+                padding: 4px;
+                outline: none;
+                transition: border-color 0.2s ease;
+            }
+            .page-jump-input:focus {
+                border-color: #00eaff;
+                box-shadow: 0 0 5px #00eaff;
+            }
+        `;
+        inner.appendChild(styleElement);
+        modalContainer.appendChild(inner);
+
+        modalContainer.addEventListener("click", (e) => { if (e.target === modalContainer) closeModal(); });
+
+        const titleBar = document.createElement("div");
+        titleBar.style.gridColumn = "1 / -1";
+        titleBar.style.width = "calc(100% + 40px)";
+        titleBar.style.margin = "0 -20px 0 -20px";
+        titleBar.style.background = "linear-gradient(90deg, #5865F2, #4e5cf5, #7289da)";
+        titleBar.style.backgroundSize = "300% 300%";
+        titleBar.style.animation = "gradientGlow 6s linear infinite";
+        titleBar.style.color = "#fff";
+        titleBar.style.fontWeight = "bold";
+        titleBar.style.fontSize = "16px";
+        titleBar.style.textAlign = "center";
+        titleBar.style.padding = "12px 0";
+        titleBar.style.borderRadius = "10px 10px 0 0";
+        titleBar.style.boxShadow = "0 0 10px rgba(88,101,242,0.6), 0 0 20px rgba(88,101,242,0.4)";
+        titleBar.textContent = "Guild Tags Panel";
+        inner.appendChild(titleBar);
+
+        const searchBar = document.createElement("div");
+        searchBar.className = "search-bar";
+        const searchInput = document.createElement("input");
+        searchInput.className = "search-input";
+        searchInput.placeholder = "Search guild tags...";
+        searchInput.addEventListener("input", (e) => {
+            this.searchQuery = e.target.value.toLowerCase();
+            if (this.searchQuery.trim() === "") {
+                this.filteredGuilds = [...this.guilds];
+                // Keep current page on discard
+            } else {
+                this.filteredGuilds = this.guilds.filter(g => g.name.toLowerCase().includes(this.searchQuery));
+                this.currentPage = 1;
+            }
+            renderGuilds();
+        });
+        searchBar.appendChild(searchInput);
+        inner.appendChild(searchBar);
+
+        const infoSection = document.createElement("div");
+        infoSection.style.color = "#fff";
+        infoSection.style.fontSize = "14px";
+        infoSection.style.margin = "0 0 10px 0";
+        infoSection.style.textAlign = "center";
+        infoSection.style.gridColumn = "span 4";
+
+        const creator = document.createElement("div");
+        creator.innerHTML = `<span class="premium-white">Creator - </span><span class="discord-blue">@slashbyte</span>`;
+        infoSection.appendChild(creator);
+
+        const support = document.createElement("div");
+        const supportText = document.createElement("span");
+        supportText.innerHTML = `<span class="premium-white">[Members-Only] Rare Tags Inside My Server- </span>`;
+        support.appendChild(supportText);
+
+        const supportLink = document.createElement("a");
+        supportLink.href = "https://discord.gg/hmUYz38Ewk";
+        supportLink.target = "_blank";
+        supportLink.textContent = "https://discord.gg/hmUYz38Ewk";
+        supportLink.className = "discord-blue";
+        support.appendChild(supportLink);
+
+        infoSection.appendChild(support);
+        infoSection.appendChild(document.createElement("br"));
+        inner.appendChild(infoSection);
+
+        const cardsContainer = document.createElement("div");
+        cardsContainer.style.gridColumn = "1 / -1";
+        cardsContainer.style.display = "grid";
+        cardsContainer.style.gridTemplateColumns = "repeat(4, 1fr)";
+        cardsContainer.style.gap = "20px";
+        inner.appendChild(cardsContainer);
+
+        const paginationDiv = document.createElement("div");
+        paginationDiv.className = "pagination";
+        inner.appendChild(paginationDiv);
+
+        const userModule = BdApi.findModuleByProps("getCurrentUser");
+        const currentUser = userModule?.getCurrentUser();
+        const userAvatar = currentUser
+            ? `https://cdn.discordapp.com/avatars/${currentUser.id}/${currentUser.avatar}.png?size=64`
+            : "https://cdn.discordapp.com/embed/avatars/0.png";
+        const userName = currentUser?.globalName || currentUser?.username || "User";
+        const createCard = (guild) => {
+            const card = document.createElement("div");
+            card.style.background = "linear-gradient(145deg, #2a2c30, #1f2023)";
+            card.style.borderRadius = "12px";
+            card.style.padding = "10px";
+            card.style.display = "flex";
+            card.style.flexDirection = "column";
+            card.style.alignItems = "center";
+            card.style.transition = "transform 0.3s ease, box-shadow 0.3s ease";
+            card.style.cursor = "pointer";
+            card.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)";
+            card.style.animation = `cardFadeIn 0.45s ease-out`;
+            card.addEventListener("mouseover", () => {
+                card.style.transform = "translateY(-4px) scale(1.03)";
+                card.style.animation = "pulseGlow 1.5s infinite";
+            });
+            card.addEventListener("mouseout", () => {
+                card.style.transform = "translateY(0) scale(1)";
+                card.style.animation = "none";
+                card.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)";
+            });
+
+            const topRow = document.createElement("div");
+            topRow.style.display = "flex";
+            topRow.style.alignItems = "center";
+            topRow.style.justifyContent = "flex-start";
+            topRow.style.width = "100%";
+            topRow.style.marginBottom = "10px";
+
+            const pfp = document.createElement("img");
+            pfp.src = userAvatar;
+            pfp.style.width = "32px";
+            pfp.style.height = "32px";
+            pfp.style.borderRadius = "50%";
+            pfp.style.objectFit = "cover";
+            pfp.style.marginRight = "8px";
+            pfp.style.border = "2px solid #5865F2";
+
+            const name = document.createElement("span");
+            name.textContent = userName;
+            name.style.color = "#fff";
+            name.style.fontSize = "14px";
+            name.style.display = "flex";
+            name.style.alignItems = "center";
+
+            const guildImg = document.createElement("img");
+            guildImg.src = guild.image;
+            guildImg.style.marginLeft = "2px";
+            guildImg.style.height = "20px";
+            guildImg.style.width = "auto";
+            guildImg.style.objectFit = "contain";
+            guildImg.style.transition = "transform 0.3s ease";
+            guildImg.addEventListener("mouseover", () => { guildImg.style.transform = "rotate(15deg) scale(1.1)"; });
+            guildImg.addEventListener("mouseout", () => { guildImg.style.transform = "rotate(0deg) scale(1)"; });
+
+            name.appendChild(guildImg);
+            topRow.appendChild(pfp);
+            topRow.appendChild(name);
+
+            const btnContainer = document.createElement("div");
+            btnContainer.style.display = "flex";
+            btnContainer.style.width = "100%";
+            btnContainer.style.gap = "6px";
+            btnContainer.style.marginTop = "5px";
+            btnContainer.style.position = "relative";
+
+            const btn = document.createElement("button");
+            btn.textContent = "APPLY TAG";
+            btn.style.background = "#5865F2";
+            btn.style.border = "none";
+            btn.style.flex = "1";
+            btn.style.padding = "6px 12px";
+            btn.style.height = "36px";
+            btn.style.color = "#fff";
+            btn.style.borderRadius = "6px";
+            btn.style.cursor = "pointer";
+            btn.style.fontWeight = "600";
+            btn.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+            btn.style.transition = "background 0.25s ease, transform 0.2s ease, box-shadow 0.2s ease";
+            btn.addEventListener("mouseover", () => {
+                btn.style.background = "#4752C4";
+                btn.style.transform = "translateY(-1px)";
+                btn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)";
+            });
+            btn.addEventListener("mouseout", () => {
+                btn.style.background = "#5865F2";
+                btn.style.transform = "translateY(0)";
+                btn.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+            });
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                window.open(guild.invite, "_blank");
+            });
+
+            const clipContainer = document.createElement("div");
+            clipContainer.className = "clip-btn-container";
+            clipContainer.style.position = "relative";
+
+            const clipBtn = document.createElement("button");
+            clipBtn.textContent = "🔗";
+            clipBtn.style.background = "#3ba55d";
+            clipBtn.style.border = "none";
+            clipBtn.style.width = "40px";
+            clipBtn.style.height = "36px";
+            clipBtn.style.fontSize = "16px";
+            clipBtn.style.fontWeight = "bold";
+            clipBtn.style.color = "#fff";
+            clipBtn.style.borderRadius = "6px";
+            clipBtn.style.cursor = "pointer";
+            clipBtn.style.transition = "background 0.25s ease, transform 0.2s ease, box-shadow 0.2s ease";
+            clipBtn.addEventListener("mouseover", () => {
+                clipBtn.style.background = "#43c06a";
+                clipBtn.style.transform = "translateY(-1px)";
+            });
+            clipBtn.addEventListener("mouseout", () => {
+                clipBtn.style.background = "#3ba55d";
+                clipBtn.style.transform = "translateY(0)";
+            });
+            clipBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(guild.invite);
+                const toastContainer = document.querySelector('.bd-toasts');
+                if (toastContainer) toastContainer.style.zIndex = "10001";
+                BdApi.showToast("Invite link copied!", { type: "success" });
+                setTimeout(() => { if (toastContainer) toastContainer.style.zIndex = ""; }, 1000);
+            });
+
+            const tooltip = document.createElement("div");
+            tooltip.className = "clip-tooltip";
+            tooltip.textContent = "Copy Invite Link";
+
+            clipContainer.appendChild(clipBtn);
+            clipContainer.appendChild(tooltip);
+
+            btnContainer.appendChild(btn);
+            btnContainer.appendChild(clipContainer);
+
+            card.appendChild(topRow);
+            card.appendChild(btnContainer);
+
+            return card;
+        };
+
+        const renderGuilds = () => {
+            cardsContainer.style.animation = this.lastPage < this.currentPage ? "slideLeft 0.4s ease" : "slideRight 0.4s ease";
+            cardsContainer.innerHTML = "";
+            paginationDiv.innerHTML = "";
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            const end = start + this.itemsPerPage;
+            const currentGuilds = this.filteredGuilds.slice(start, end);
+            currentGuilds.forEach(g => cardsContainer.appendChild(createCard(g)));
+
+            const totalPages = Math.ceil(this.filteredGuilds.length / this.itemsPerPage);
+            if (totalPages > 1) {
+                const prevBtn = document.createElement("button");
+                prevBtn.className = "page-btn";
+                prevBtn.textContent = "Prev";
+                prevBtn.disabled = this.currentPage === 1;
+                prevBtn.addEventListener("click", () => {
+                    if (this.currentPage > 1) {
+                        this.lastPage = this.currentPage;
+                        this.currentPage--;
+                        renderGuilds();
+                    }
+                });
+                paginationDiv.appendChild(prevBtn);
+
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= this.currentPage - 2 && i <= this.currentPage + 2)) {
+                        const pageBtn = document.createElement("button");
+                        pageBtn.className = "page-btn" + (i === this.currentPage ? " active" : "");
+                        pageBtn.textContent = i;
+                        pageBtn.addEventListener("click", () => {
+                            this.lastPage = this.currentPage;
+                            this.currentPage = i;
+                            renderGuilds();
+                        });
+                        paginationDiv.appendChild(pageBtn);
+                    } else if (i === 2 || i === totalPages - 1) {
+                        const dots = document.createElement("span");
+                        dots.textContent = "...";
+                        dots.style.color = "#fff";
+                        paginationDiv.appendChild(dots);
+                    }
+                }
+
+                const nextBtn = document.createElement("button");
+                nextBtn.className = "page-btn";
+                nextBtn.textContent = "Next";
+                nextBtn.disabled = this.currentPage === totalPages;
+                nextBtn.addEventListener("click", () => {
+                    if (this.currentPage < totalPages) {
+                        this.lastPage = this.currentPage;
+                        this.currentPage++;
+                        renderGuilds();
+                    }
+                });
+                paginationDiv.appendChild(nextBtn);
+
+                const pageInfo = document.createElement("span");
+                pageInfo.style.color = "#fff";
+                pageInfo.style.marginLeft = "10px";
+                pageInfo.textContent = `Page ${this.currentPage} of ${totalPages}`;
+                paginationDiv.appendChild(pageInfo);
+
+                const pageJump = document.createElement("input");
+                pageJump.type = "number";
+                pageJump.min = 1;
+                pageJump.max = totalPages;
+                pageJump.className = "page-jump-input";
+                pageJump.placeholder = "#";
+                pageJump.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") {
+                        let val = parseInt(pageJump.value);
+                        if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                            this.lastPage = this.currentPage;
+                            this.currentPage = val;
+                            renderGuilds();
+                        }
+                    }
+                });
+                paginationDiv.appendChild(pageJump);
+            }
+        };
+
+        this.lastPage = 1;
+        renderGuilds();
+    }
+
+    _forceUpdateSettings() {
+        const settingsView = document.querySelector('[class*="settingsView-"]');
+        if (settingsView) {
+            const fiberKey = Object.keys(settingsView).find(k => k.startsWith("__reactFiber"));
+            const fiber = settingsView[fiberKey];
+            fiber?.return?.stateNode?.forceUpdate?.();
+        }
+    }
+};
