@@ -5,7 +5,7 @@ module.exports = class GuildTags {
                 name: "Guild Tags",
                 authors: [{ name: "SlashByte" }],
                 version: "1.3.0",
-                description: "Adds Guild Tags button to settings with a cool Discord-like UI, cascading animations, copy invite button with tooltip, visible toast, loading spinner, sleek title bar, search bar, and pagination."
+                description: "All Guild Tags in one place"
             }
         };
         this.currentPage = 1;
