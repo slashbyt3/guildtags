@@ -298,7 +298,7 @@ module.exports = class GuildTags {
 
         const support = document.createElement("div");
         const supportText = document.createElement("span");
-        supportText.innerHTML = `<span class="premium-white">[Members-Only] Rare Tags Inside My Server- </span>`;
+        supportText.innerHTML = `<span class="premium-white">[Members-Only] Support Server - </span>`;
         support.appendChild(supportText);
 
         const supportLink = document.createElement("a");
