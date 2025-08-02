@@ -1,12 +1,3 @@
-/**
- * @name GuildTags
- * @version 1.3.0
- * @author SlashByte
- * @discord_id @slashbyte
- * @discord_server https://discord.gg/hmUYz38Ewk  
- * @description It Adds Guild Tags button to settings with a cool Discord-like UI, cascading animations, copy invite button with tooltip, visible toast, loading spinner, a sleek title bar, search bar, and pagination controls.
- */
-
 module.exports = class GuildTags {
     constructor() {
         this._config = {
